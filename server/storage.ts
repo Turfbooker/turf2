@@ -1,9 +1,11 @@
-import { users, type User, type InsertUser, turfs, type Turf, type InsertTurf, bookings, type Booking, type InsertBooking, reviews, type Review, type InsertReview } from "@shared/schema";
-import createMemoryStore from "memorystore";
+import { db, pool } from "./db";
+import { users, turfs, bookings, reviews } from "@shared/schema";
+import type { User, InsertUser, Turf, InsertTurf, Booking, InsertBooking, Review, InsertReview } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import session from "express-session";
+import connectPg from "connect-pg-simple";
 
-// Create memory store for sessions
-const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
   // User-related methods
@@ -36,159 +38,106 @@ export interface IStorage {
   sessionStore: session.SessionStore;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private turfs: Map<number, Turf>;
-  private bookings: Map<number, Booking>;
-  private reviews: Map<number, Review>;
-  
-  private userIdCounter: number;
-  private turfIdCounter: number;
-  private bookingIdCounter: number;
-  private reviewIdCounter: number;
-  
+export class DatabaseStorage implements IStorage {
   sessionStore: session.SessionStore;
 
   constructor() {
-    this.users = new Map();
-    this.turfs = new Map();
-    this.bookings = new Map();
-    this.reviews = new Map();
-    
-    this.userIdCounter = 1;
-    this.turfIdCounter = 1;
-    this.bookingIdCounter = 1;
-    this.reviewIdCounter = 1;
-    
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000, // prune expired entries every 24h
+    this.sessionStore = new PostgresSessionStore({ 
+      pool, 
+      createTableIfMissing: true,
+      tableName: 'session'
     });
-    
-    // Add some sample data
-    this.seedData();
   }
 
-  // User methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
-  
+
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === email,
-    );
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userIdCounter++;
-    const timestamp = new Date();
-    const user: User = { ...insertUser, id, createdAt: timestamp };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
-  
-  // Turf methods
+
   async createTurf(insertTurf: InsertTurf): Promise<Turf> {
-    const id = this.turfIdCounter++;
-    const timestamp = new Date();
-    const turf: Turf = { ...insertTurf, id, createdAt: timestamp };
-    this.turfs.set(id, turf);
+    const [turf] = await db.insert(turfs).values(insertTurf).returning();
     return turf;
   }
-  
+
   async getTurf(id: number): Promise<Turf | undefined> {
-    return this.turfs.get(id);
+    const [turf] = await db.select().from(turfs).where(eq(turfs.id, id));
+    return turf;
   }
-  
+
   async getTurfs(): Promise<Turf[]> {
-    return Array.from(this.turfs.values());
+    return await db.select().from(turfs);
   }
-  
+
   async getTurfsByOwner(ownerId: number): Promise<Turf[]> {
-    return Array.from(this.turfs.values()).filter(
-      (turf) => turf.ownerId === ownerId
-    );
+    return await db.select().from(turfs).where(eq(turfs.ownerId, ownerId));
   }
-  
+
   async updateTurf(id: number, turfUpdate: Partial<InsertTurf>): Promise<Turf | undefined> {
-    const turf = this.turfs.get(id);
-    if (!turf) return undefined;
-    
-    const updatedTurf = { ...turf, ...turfUpdate };
-    this.turfs.set(id, updatedTurf);
-    return updatedTurf;
+    const [turf] = await db.update(turfs)
+      .set(turfUpdate)
+      .where(eq(turfs.id, id))
+      .returning();
+    return turf;
   }
-  
+
   async deleteTurf(id: number): Promise<boolean> {
-    return this.turfs.delete(id);
+    const result = await db.delete(turfs).where(eq(turfs.id, id));
+    return result.rowCount > 0;
   }
-  
-  // Booking methods
+
   async createBooking(insertBooking: InsertBooking): Promise<Booking> {
-    const id = this.bookingIdCounter++;
-    const timestamp = new Date();
-    const booking: Booking = { ...insertBooking, id, createdAt: timestamp };
-    this.bookings.set(id, booking);
+    const [booking] = await db.insert(bookings).values(insertBooking).returning();
     return booking;
   }
-  
+
   async getBooking(id: number): Promise<Booking | undefined> {
-    return this.bookings.get(id);
+    const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
+    return booking;
   }
-  
+
   async getBookingsByTurf(turfId: number): Promise<Booking[]> {
-    return Array.from(this.bookings.values()).filter(
-      (booking) => booking.turfId === turfId
-    );
+    return await db.select().from(bookings).where(eq(bookings.turfId, turfId));
   }
-  
+
   async getBookingsByUser(userId: number): Promise<Booking[]> {
-    return Array.from(this.bookings.values()).filter(
-      (booking) => booking.userId === userId
-    );
+    return await db.select().from(bookings).where(eq(bookings.userId, userId));
   }
-  
+
   async updateBookingStatus(id: number, status: "pending" | "confirmed" | "cancelled"): Promise<Booking | undefined> {
-    const booking = this.bookings.get(id);
-    if (!booking) return undefined;
-    
-    const updatedBooking = { ...booking, status };
-    this.bookings.set(id, updatedBooking);
-    return updatedBooking;
+    const [booking] = await db.update(bookings)
+      .set({ status })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking;
   }
-  
-  // Review methods
+
   async createReview(insertReview: InsertReview): Promise<Review> {
-    const id = this.reviewIdCounter++;
-    const timestamp = new Date();
-    const review: Review = { ...insertReview, id, createdAt: timestamp };
-    this.reviews.set(id, review);
+    const [review] = await db.insert(reviews).values(insertReview).returning();
     return review;
   }
-  
+
   async getReviewsByTurf(turfId: number): Promise<Review[]> {
-    return Array.from(this.reviews.values()).filter(
-      (review) => review.turfId === turfId
-    );
+    return await db.select().from(reviews).where(eq(reviews.turfId, turfId));
   }
-  
+
   async getReviewsByUser(userId: number): Promise<Review[]> {
-    return Array.from(this.reviews.values()).filter(
-      (review) => review.userId === userId
-    );
-  }
-  
-  // Helper method to seed some initial data
-  private seedData() {
-    // We'll leave this empty as per the guidelines to not generate mock data
-    // The application will start with empty collections and get populated as users interact with it
+    return await db.select().from(reviews).where(eq(reviews.userId, userId));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
