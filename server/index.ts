@@ -61,6 +61,10 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = 5000;
   server.listen(port, '0.0.0.0', () => {
-    console.log(`server running at http://0.0.0.0:${port}`);
+    console.log(`Server running at http://0.0.0.0:${port}`);
+    console.log('API endpoints:');
+    console.log('- GET /api/turfs');
+    console.log('- GET /api/bookings');
+    console.log('- POST /api/bookings');
   });
 })();

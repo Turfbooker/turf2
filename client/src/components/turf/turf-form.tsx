@@ -71,19 +71,19 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  
+
   // Format time for default values (from 24h to HH:MM)
   const formatTime = (time: string | undefined) => {
     if (!time) return "";
     return time;
   };
-  
+
   // Format price for default values (from cents to whole number)
   const formatPrice = (price: number | undefined) => {
     if (!price) return "";
     return (price / 100).toString();
   };
-  
+
   const form = useForm<TurfFormValues>({
     resolver: zodResolver(turfFormSchema),
     defaultValues: {
@@ -97,7 +97,7 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
       availableTo: formatTime(turfData?.availableTo) || "22:00",
     },
   });
-  
+
   const createTurfMutation = useMutation({
     mutationFn: async (data: TurfFormValues) => {
       // Convert price to cents for storage
@@ -105,7 +105,7 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
         ...data,
         price: Math.round(data.price * 100),
       };
-      
+
       const res = await apiRequest("POST", "/api/turfs", turfData);
       return await res.json();
     },
@@ -114,11 +114,11 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
         title: "Turf created",
         description: "Your turf has been successfully created",
       });
-      
+
       // Invalidate turf queries
       queryClient.invalidateQueries({ queryKey: ["/api/turfs"] });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.id}/turfs`] });
-      
+
       // Redirect to dashboard
       navigate("/owner/dashboard");
     },
@@ -130,17 +130,17 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
       });
     },
   });
-  
+
   const updateTurfMutation = useMutation({
     mutationFn: async (data: TurfFormValues) => {
       if (!turfData) throw new Error("No turf data to update");
-      
+
       // Convert price to cents for storage
       const updatedTurfData = {
         ...data,
         price: Math.round(data.price * 100),
       };
-      
+
       const res = await apiRequest("PUT", `/api/turfs/${turfData.id}`, updatedTurfData);
       return await res.json();
     },
@@ -149,12 +149,12 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
         title: "Turf updated",
         description: "Your turf has been successfully updated",
       });
-      
+
       // Invalidate turf queries
       queryClient.invalidateQueries({ queryKey: ["/api/turfs"] });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.id}/turfs`] });
       queryClient.invalidateQueries({ queryKey: [`/api/turfs/${turfData?.id}`] });
-      
+
       // Redirect to dashboard
       navigate("/owner/dashboard");
     },
@@ -166,7 +166,7 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
       });
     },
   });
-  
+
   function onSubmit(data: TurfFormValues) {
     if (editMode && turfData) {
       updateTurfMutation.mutate(data);
@@ -174,7 +174,7 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
       createTurfMutation.mutate(data);
     }
   }
-  
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -194,7 +194,7 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
             </FormItem>
           )}
         />
-        
+
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
@@ -223,27 +223,16 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="location"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Location</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select location" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location} value={location}>
-                        {location}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Input type="text" placeholder="Enter location" {...field} />
+                </FormControl>
                 <FormDescription>
                   Area where the turf is located
                 </FormDescription>
@@ -252,7 +241,7 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
             )}
           />
         </div>
-        
+
         <FormField
           control={form.control}
           name="description"
@@ -273,7 +262,7 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="price"
@@ -290,7 +279,7 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
             </FormItem>
           )}
         />
-        
+
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
@@ -308,7 +297,7 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="availableTo"
@@ -326,7 +315,7 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
             )}
           />
         </div>
-        
+
         <FormField
           control={form.control}
           name="imageUrl"
@@ -346,7 +335,7 @@ export function TurfForm({ editMode = false, turfData }: TurfFormProps) {
             </FormItem>
           )}
         />
-        
+
         <Button
           type="submit"
           className="w-full"

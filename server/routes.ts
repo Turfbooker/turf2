@@ -59,7 +59,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Set owner ID to current user
-      const turfData = { ...req.body, ownerId: req.user.id };
+      const turfData = { 
+        ...req.body, 
+        ownerId: req.user.id,
+        // Ensure these required fields are present
+        name: req.body.name,
+        location: req.body.location,
+        sportType: req.body.sportType,
+        pricePerHour: req.body.pricePerHour,
+        availableFrom: req.body.availableFrom,
+        availableTo: req.body.availableTo
+      };
       
       const turf = await storage.createTurf(turfData);
       res.status(201).json(turf);
